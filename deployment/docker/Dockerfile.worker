@@ -1,0 +1,35 @@
+FROM apache/airflow:2.10.3-python3.10
+
+USER root
+
+# 安裝中文字體
+RUN apt-get update && \
+    apt-get install -y \
+        fonts-noto-cjk \
+        fonts-noto-cjk-extra \
+        fontconfig \
+        curl && \
+    fc-cache -fv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# 手動下載繁體中文 .otf 字體（解決 Matplotlib 無法識別 .ttc 多語言字體的問題）
+RUN mkdir -p /usr/share/fonts/truetype/noto && \
+    cd /usr/share/fonts/truetype/noto && \
+    curl -sL https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf -o NotoSansCJKtc-Regular.otf && \
+    curl -sL https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Bold.otf -o NotoSansCJKtc-Bold.otf && \
+    fc-cache -fv && \
+    chown -R airflow:root /usr/share/fonts/truetype/noto
+
+USER airflow
+
+# 安裝 Python 套件
+COPY --chown=airflow:airflow deployment/requirements-worker.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# 清除 Matplotlib 快取
+RUN rm -rf ~/.cache/matplotlib
+
+# 複製程式碼
+WORKDIR /opt/airflow
+COPY --chown=airflow:airflow . .

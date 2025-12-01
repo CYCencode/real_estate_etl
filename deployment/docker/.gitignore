@@ -1,0 +1,19 @@
+# Docker 執行時產生的檔案
+logs/
+*.log
+
+# 不應該提交的配置
+.env
+.env.local
+
+# Docker volumes
+data/
+postgres-db/
+
+# Backup files
+*.backup
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db

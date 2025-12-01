@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Airflow
+*.log
+*.db
+*.pid
+
+# IDE
+.vscode/
+.idea/
+
+# 敏感資訊
+.env
+secrets/
+*.secret
+logs/
+*.log

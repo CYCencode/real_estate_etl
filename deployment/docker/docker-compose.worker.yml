@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  airflow-worker:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.worker
+    image: real-estate-airflow-worker:latest
+    container_name: airflow-worker
+    network_mode: host
+    user: "1002:0"
+    
+    # 載入共用環境變數檔案
+    env_file:
+      - airflow-env.yml
+    
+    # 只保留機敏資訊（從 VM 環境變數注入）
+    environment:
+      - PG_PASSWORD
+      - AIRFLOW_PG_PASSWORD
+      - FERNET_KEY
+      - SLACK_WEBHOOK_URL
+      - HERE_API_KEY
+      - GMAIL_APP_PASSWORD
+      - GOOGLE_MAPS_API_KEY
+      # 覆寫 airflow-env.yml 中需要用變數的設定
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - MPLCONFIGDIR=/tmp/matplotlib_config
+    
+    volumes:
+      - ../../dags:/opt/airflow/dags:ro
+      - ../../plugins:/opt/airflow/plugins:ro
+      # 用 named volume（避免權限問題）
+      - worker-logs:/opt/airflow/logs
+    
+    command: celery worker -H airflow-worker-docker
+    restart: always
+    
+    healthcheck:
+      test: ["CMD-SHELL", "celery --app airflow.executors.celery_executor.app inspect ping -d celery@airflow-worker-docker"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# 定義 named volume
+volumes:
+  worker-logs:

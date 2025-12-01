@@ -1,0 +1,86 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  image: real-estate-airflow-control:latest  
+  network_mode: host
+  user: "1002:0"
+  env_file:
+    - airflow-env.yml
+  environment:
+    - PG_PASSWORD
+    - AIRFLOW_PG_PASSWORD
+    - FERNET_KEY
+    - WEBSERVER_SECRET_KEY
+    - SLACK_WEBHOOK_URL
+    - HERE_API_KEY
+    - GMAIL_APP_PASSWORD
+    - GOOGLE_MAPS_API_KEY
+    - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+    - AIRFLOW__WEBSERVER__SECRET_KEY=${WEBSERVER_SECRET_KEY}
+    - MPLCONFIGDIR=/tmp/matplotlib_config
+  volumes:
+    - ../../dags:/opt/airflow/dags:ro
+    - ../../plugins:/opt/airflow/plugins:ro
+    - airflow-logs:/opt/airflow/logs
+  restart: always
+
+services:
+  base-image:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.control
+    image: real-estate-airflow-control:latest
+    command: ["echo", "Image built successfully"]
+    profiles: ["build-only"]
+
+  redis:
+    image: redis:7-alpine
+    container_name: airflow-redis
+    network_mode: host
+    command: redis-server --bind 0.0.0.0 --port 6379
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api-server:
+    <<: *airflow-common
+    container_name: api-server
+    entrypoint: []
+    environment:
+      - PG_PASSWORD
+      - SLACK_WEBHOOK_URL
+      - HERE_API_KEY
+      - GMAIL_APP_PASSWORD
+      - GOOGLE_MAPS_API_KEY
+      - PYTHONPATH=/opt/airflow:/opt/airflow/dags
+    volumes:
+      - ../../:/opt/airflow  # 掛載整個專案
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  airflow-logs:
