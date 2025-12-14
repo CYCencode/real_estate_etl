@@ -73,7 +73,10 @@ services:
       - GOOGLE_MAPS_API_KEY
       - PYTHONPATH=/opt/airflow:/opt/airflow/dags
     volumes:
-      - ../../:/opt/airflow  # 掛載整個專案
+      - ../../apis:/opt/airflow/apis:ro          # API 程式碼
+      - ../../dags:/opt/airflow/dags:ro          # DAGs（API 會使用到 dag內的處理函數）
+      - ../../plugins:/opt/airflow/plugins:ro
+      - airflow-logs:/opt/airflow/logs           # Logs 寫入
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
