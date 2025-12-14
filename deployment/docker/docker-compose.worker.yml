@@ -29,8 +29,6 @@ services:
     
     volumes:
       - ../../dags:/opt/airflow/dags:ro
-      - ../../plugins:/opt/airflow/plugins:ro
-      # 用 named volume（避免權限問題）
       - worker-logs:/opt/airflow/logs
     
     command: celery worker -H airflow-worker-docker
