@@ -23,12 +23,10 @@ RUN mkdir -p /usr/share/fonts/truetype/noto && \
 
 USER airflow
 
-# 安裝 Python 套件（包含 API 需要的）
+# 安裝 Python 套件
 COPY --chown=airflow:airflow deployment/requirements-control.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir \
-    -r /tmp/requirements.txt \
-    uvicorn[standard]==0.24.0 \
-    fastapi==0.121.3
+    -r /tmp/requirements.txt
 
 # 清除 Matplotlib 快取
 RUN rm -rf ~/.cache/matplotlib
