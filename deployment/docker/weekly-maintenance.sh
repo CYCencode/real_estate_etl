@@ -123,26 +123,42 @@ docker volume prune -f
 
 echo "$LOG_PREFIX Docker resources cleaned"
 
-# 清理日誌 volume
+# ============================================
+# 清理 Airflow Scheduler Logs（保留 30 天）
+# ============================================
 if [ "$MODE" = "control" ]; then
-    LOG_SIZE=$(docker run --rm -v airflow-logs:/logs alpine:latest du -sh /logs | awk '{print $1}')
-    echo "$LOG_PREFIX Control VM log size before cleanup: $LOG_SIZE"
+    echo "$LOG_PREFIX Cleaning Airflow logs (keeping last 30 days)..."
     
-    docker run --rm -v airflow-logs:/logs alpine:latest \
-        sh -c "find /logs -type f -mtime +30 -delete && find /logs -type d -empty -delete"
+    # 記錄清理前大小
+    LOG_SIZE_BEFORE=$(docker exec airflow-scheduler du -sh /opt/airflow/logs 2>/dev/null | awk '{print $1}')
+    echo "$LOG_PREFIX Airflow logs before cleanup: $LOG_SIZE_BEFORE"
     
-    LOG_SIZE_AFTER=$(docker run --rm -v airflow-logs:/logs alpine:latest du -sh /logs | awk '{print $1}')
-    echo "$LOG_PREFIX Control VM log size after cleanup: $LOG_SIZE_AFTER"
+    # 清理 30 天前的 scheduler logs
+    docker exec airflow-scheduler sh -c "
+        find /opt/airflow/logs/scheduler -type f -mtime +30 -delete 2>/dev/null
+        find /opt/airflow/logs/dag_processor_manager -type f -mtime +30 -delete 2>/dev/null
+        find /opt/airflow/logs -type d -empty -delete 2>/dev/null
+        echo 'Airflow logs cleaned'
+    " || true
+    
+    # 記錄清理後大小
+    LOG_SIZE_AFTER=$(docker exec airflow-scheduler du -sh /opt/airflow/logs 2>/dev/null | awk '{print $1}')
+    echo "$LOG_PREFIX Airflow logs after cleanup: $LOG_SIZE_AFTER"
     
 elif [ "$MODE" = "worker" ]; then
-    LOG_SIZE=$(docker run --rm -v worker-logs:/logs alpine:latest du -sh /logs | awk '{print $1}')
-    echo "$LOG_PREFIX Worker VM log size before cleanup: $LOG_SIZE"
+    echo "$LOG_PREFIX Cleaning Worker logs (keeping last 30 days)..."
     
-    docker run --rm -v worker-logs:/logs alpine:latest \
-        sh -c "find /logs -type f -mtime +30 -delete && find /logs -type d -empty -delete"
+    LOG_SIZE_BEFORE=$(docker exec airflow-worker du -sh /opt/airflow/logs 2>/dev/null | awk '{print $1}')
+    echo "$LOG_PREFIX Worker logs before cleanup: $LOG_SIZE_BEFORE"
     
-    LOG_SIZE_AFTER=$(docker run --rm -v worker-logs:/logs alpine:latest du -sh /logs | awk '{print $1}')
-    echo "$LOG_PREFIX Worker VM log size after cleanup: $LOG_SIZE_AFTER"
+    docker exec airflow-worker sh -c "
+        find /opt/airflow/logs -type f -mtime +30 -delete 2>/dev/null
+        find /opt/airflow/logs -type d -empty -delete 2>/dev/null
+        echo 'Worker logs cleaned'
+    " || true
+    
+    LOG_SIZE_AFTER=$(docker exec airflow-worker du -sh /opt/airflow/logs 2>/dev/null | awk '{print $1}')
+    echo "$LOG_PREFIX Worker logs after cleanup: $LOG_SIZE_AFTER"
 fi
 
 echo "$LOG_PREFIX Cleanup completed"

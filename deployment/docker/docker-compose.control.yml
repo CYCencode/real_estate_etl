@@ -23,6 +23,13 @@ x-airflow-common: &airflow-common
     - airflow-logs:/opt/airflow/logs
   restart: always
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "2"
+    compress: "true"
+
 services:
   base-image:
     build:
@@ -38,6 +45,7 @@ services:
     network_mode: host
     command: redis-server --bind 0.0.0.0 --port 6379
     restart: always
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 10s
@@ -48,6 +56,7 @@ services:
     <<: *airflow-common
     container_name: airflow-scheduler
     command: scheduler
+    logging: *default-logging
     depends_on:
       redis:
         condition: service_healthy
@@ -56,6 +65,7 @@ services:
     <<: *airflow-common
     container_name: airflow-webserver
     command: webserver
+    logging: *default-logging
     depends_on:
       redis:
         condition: service_healthy
@@ -64,6 +74,7 @@ services:
     <<: *airflow-common
     container_name: api-server
     entrypoint: []
+    logging: *default-logging
     environment:
       - PG_PASSWORD
       - SLACK_WEBHOOK_URL
